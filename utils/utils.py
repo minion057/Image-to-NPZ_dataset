@@ -12,7 +12,7 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 
 
-def createDirectory(dir_path):
+def createDirectory(dir_path:str):
     '''
     This function checks whether a folder exists and creates the folder at the specified path if it doesn't exist.
         Args:
@@ -167,7 +167,7 @@ def show_data2img(datas:list, class_names:list, BGR2RGB:bool=True):
     '''
     Visualize a dataset converted to numpy images.
         Args:
-            datas (list) : A subset of the dataset. [[data list], [labels list]]
+            datas (list) : A subset of the dataset. [[data, label], [data, label], ...]
             class_names (list) : A list of class names sorted according to the labels.
         Returns: 
             None
@@ -199,10 +199,10 @@ def format_check_counts(counts:dict={'train':[], 'valid':[], 'test':[]}):
     param_key_list.sort()
     if need_key_list != need_key_list : raise ValueError("The 'counts' dictionary's keys can only be set to train, valid, or test.")
     for key, value in counts.items():
-        if type(value) != list: raise TypeError("The values in the 'counts' dictionary must be of type list.")
+        if type(value) != np.ndarray: raise TypeError("The values in the 'counts' dictionary must be of type list.")
   
 
-def show_DIST(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]}):
+def show_DIST(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]}, plt_title:str='Class Distribution'):
     '''
     Calculate the percentage of each class in the dataset and display the counts with a bar graph.
         Args:
@@ -214,7 +214,7 @@ def show_DIST(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]})
     '''
     format_check_counts(counts)
     DIST_pct(class_names, counts, True)
-    DIST_countplot(class_names, counts, True)
+    DIST_countplot(class_names, plt_title, counts, True)
   
   
 def DIST_pct(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]}, format_checked_counts:bool=False):
@@ -238,7 +238,7 @@ def DIST_pct(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]}, 
         
         
 def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid':[], 'test':[]}, format_checked_counts:bool=False,
-                   figsize:tuple=(5,5), bar_size:float=0.23, ncol_in_legend:int=4, data_point_count_text_size:float=10.0):
+                   figsize:tuple=(5,5), bar_size:float=0.23, ncol_in_legend:int=4, data_point_count_text_size:float=12.0):
     '''
     Calculate the number of data points taken up by each class in each dataset and display it with a bar graph.
         Args:
@@ -254,7 +254,8 @@ def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid'
         Returns:
             None
     '''
-    if not format_checked_counts: format_check_counts(counts)
+    # if not format_checked_counts: format_check_counts(counts)
+    counts = {k:np.unique(v, return_counts=True)[-1].tolist() for k, v in counts.items()} 
     x = np.arange(len(class_names))
     plt.figure(figsize=figsize)
     color_list = [[plt.cm.Pastel1(i) for i in range(9)], [plt.cm.Paired(i) for i in range(12)], [plt.cm.Pastel2(i) for i in range(9)]]
@@ -269,11 +270,11 @@ def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid'
         bar = plt.bar(x+(bar_size*i), score, label=str(category), width=bar_size, color=next(colors))
         cnt+=1
         for rect, text in zip(bar, score):
-            height = rect.get_height()-10
+            height = rect.get_height()-25
             plt.text(rect.get_x() + rect.get_width()/2.0, height, text, ha='center', va='bottom', size=data_point_count_text_size)
     plt.xticks(x+((bar_size/2)*(cnt-1)), class_names, fontdict = {'fontsize' : 13})
     plt.legend(loc='lower left', bbox_to_anchor=(0,-0.2,1,0.2), ncol=ncol_in_legend, mode='expand')
-    plt.tight_layout(rect=[0, -0.3, 0, 0])
+    plt.tight_layout()
     plt.show()
 # To calculate class distribution ====== End ======
 ''' To check the dataset ====== End ====== '''
@@ -290,11 +291,28 @@ def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid'
 #   - E.g. x_train, x_valid, y_train, y_valid = train_test_split(data, label, test_size=0.2, shuffle=True, stratify=label, random_state=34) 
 
 
+def save_numpy_dataset(dataset:dict, class_names:list, save_dir:str=None, save_name:str='img2npz'):
+    '''
+    Save the numpy dataset as an npz file.
+        Args:
+            dataset (dict) : Numpy-formatted dataset. (If you only have image data, use the 'make_a_numpy_dataset' function.)
+            class_names (list) : A list of the names of classes present in the dataset.
+            save_dir (str) : The path where the files will be saved.
+            save (bool) : Whether to save the files or not.
+        Returns:
+            None (Save the dataset.)
+    '''
+    createDirectory(save_dir)
+    save_name = save_name if save_name[-len('.npz'):] == '.npz' else f'{save_name}.npz'
+    np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), data=dataset['data'], label=dataset['label'])
+    print(f'save... {save_dir}/{save_name}\n')
+    
+
 def make_a_splitset(dataset:dict, class_names:list, splitset_size:float=0.2, random_state:int=1, save_dir:str=None, save:bool=True):
     '''
     Divide the dataset according to its size.
         Args:
-            dataset (dict) : The dataset created with 'make_a_numpy_dataset.'
+            dataset (dict) : Numpy-formatted dataset. (If you only have image data, use the 'make_a_numpy_dataset' function.)
             class_names (list) : A list of the names of classes present in the dataset.
             splitset_size (float) : The ratio to set aside as the test set. (0 < splitset_size < 1)
             random_state (int) : Random seed.
@@ -317,7 +335,7 @@ def make_a_splitset(dataset:dict, class_names:list, splitset_size:float=0.2, ran
 
     if save:
         np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
-        print(f'save... {save_dir}\n')
+        print(f'save... {save_dir}/{save_name}\n')
     else: return x_train, x_test, y_train, y_test
 
 
@@ -333,6 +351,7 @@ def cal_val_ratio(size:tuple=(0.6, 0.2, 0.2), first_split:str='test'):
                                 (전체 데이터셋을 기준으로 필요한 데이터 개수를 얻기 위해 남은 데이터셋에서 다시 계산한 비율)
     '''
     if len(size) != 3 : ValueError('Size should be specified with three values.')
+    if sum(size) != 1 : ValueError('The sum of the sizes should be equal to 1.')
     train_ratio, validation_ratio, test_ratio = size
     if first_split == 'test':
         print(f'train + val = {1 - test_ratio}')
@@ -345,12 +364,16 @@ def cal_val_ratio(size:tuple=(0.6, 0.2, 0.2), first_split:str='test'):
     return val_ratio
   
 # split_trainset  
-def make_a_validationset_static_test(x_train, x_test, y_train, y_test, class_names:list, save_dir:str, train_val_test_size:tuple=(0.6, 0.2, 0.2), random_state:int=1, save:bool=True):
+def make_a_validationset_static_test(x_train:np.ndarray, x_test:np.ndarray, y_train:np.ndarray, y_test:np.ndarray, class_names:list,
+                                     train_val_test_size:tuple=(0.6, 0.2, 0.2), random_state:int=1, save_dir:str=None, save:bool=True):
     '''
     Create a validation set when you already have a training set and a test set.
-    (Calculate the number of data points corresponding to the validation ratio based on the entire dataset.)
+    (Calculate the number of data points corresponding to the validation ratio based on the entire dataset.
+     e.g., There are 100 data points in total, with 80 of them in the training dataset and 20 in the test dataset.    
+           You want to use 20% of the entire dataset as the validation dataset.    
+           To do this, you should recalculate the validation dataset size based on the training dataset size.)
         Args:
-            x_train, x_test, y_train, y_test : The dataset created with 'make_a_splitset'
+            x_train, x_test, y_train, y_test (np.ndarray) : The dataset created with 'make_a_splitset'
             size (tuple) : The ratio at which you want to split the dataset based on the entire dataset. (train_ratio, validation_ratio, test_ratio)
             first_split (str) : The name of the initially created dataset. ('test' or 'train')
         Returns:
@@ -366,7 +389,7 @@ def make_a_validationset_static_test(x_train, x_test, y_train, y_test, class_nam
     train_ratio, validation_ratio, test_ratio = train_val_test_size
     save_name = f'train{train_ratio}val{validation_ratio}test{test_ratio}.npz'
     if save: np.savez(os.path.join(save_dir, save_name), class_names=np.array(class_names), x_train=x_train, x_valid=x_valid, x_test=x_test, y_train=y_train, y_valid=y_valid, y_test=y_test)
-    print(f'save... {save_dir}\n')
+    print(f'save... {save_dir}/{save_name}\n')
 ''' Splitting and Save ====== End ====== '''
 
 
@@ -387,7 +410,7 @@ def load_npz_dataset(npz_path:str):
         x_test=file['x_test']
         y_train=file['y_train']
         y_test=file['y_test']
-        if 'x_valid' in list(x.keys()):
+        if 'x_valid' in list(file.keys()):
             x_valid=file['x_valid']
             y_valid=file['y_valid']
             valid = True
