@@ -110,8 +110,23 @@ def make_a_brightness_data(data:list, DA_index_list:list, label_of_class=None, b
     return new_data, new_labels
 
 
-def bright_DA_run(npz_file_path, class_label:list=[0,1], class_aug:list=[1, 0], betalist:list=[100, -100, 200, -200, 150, -150, 50, -50],
-                  save_dir:str=None, save:bool=False):
+def bright_DA_run(npz_file_path:list, class_label:list=[0,1], class_aug:list=[1, 0], betalist:list=[100, -100, 200, -200, 150, -150, 50, -50],
+                  save_dir:str=None, save_name:str=None, save:bool=False, return_new_label_shape:bool=False):
+    '''
+    Perform data augmentation using the 'make_a_brightness_data' function.
+        Args:
+            npz_file_path (list) : The complete dataset for one class.
+            class_label (list) : List of labels for classes to perform data augmentation on.
+            class_aug (list) : List of the number of times to perform data augmentation for each class.
+            betalist (list) : Value list for brightness adjustment.
+                              (Higher values make it brighter, lower values make it darker. Recommended between -225 and 225.)
+            save_dir (str) : The path where the files will be saved.
+            save_name (str) : Name to save the file.
+            save (bool) : Whether to save the files or not.
+            return_new_label_shape (bool) : Whether to return the size of the newly created label data.
+        Returns: 
+            new_data, new_labels : The dataset with brightness adjustment and its corresponding labels.
+    '''
     if save_dir is not None : save = True
     for path in npz_file_path:
         print(f'Current file is {path} ===========================================================')
@@ -202,11 +217,11 @@ def bright_DA_run(npz_file_path, class_label:list=[0,1], class_aug:list=[1, 0], 
         print(f'After shape : {new_data.shape, new_labels.shape}')
         
         if save:
-            npz_file_name = path.split('/')[-1][:-len('.npz')]
+            npz_file_name = path.split('/')[-1][:-len('.npz')] if save_name is None else save_name
             save_dir_ = os.path.join(save_dir, npz_file_name)
             createDirectory(save_dir_)
             np.savez(os.path.join(save_dir_, bright), class_names=np.array(class_names),
                       x_train=new_data, x_valid=x_valid, x_test=x_test, y_train=new_labels, y_valid=y_valid, y_test=y_test)
-        
-        print(f'save...\n')
+            print(f'save...\n')
+        if return_new_label_shape: return new_labels.shape
 ''' Brightness ====== End ====== '''

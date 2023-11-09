@@ -374,8 +374,11 @@ def make_a_validationset_static_test(x_train:np.ndarray, x_test:np.ndarray, y_tr
            To do this, you should recalculate the validation dataset size based on the training dataset size.)
         Args:
             x_train, x_test, y_train, y_test (np.ndarray) : The dataset created with 'make_a_splitset'
-            size (tuple) : The ratio at which you want to split the dataset based on the entire dataset. (train_ratio, validation_ratio, test_ratio)
-            first_split (str) : The name of the initially created dataset. ('test' or 'train')
+            class_names (list) : A list of the names of classes present in the dataset.
+            train_val_test_size (tuple) : The ratio at which you want to split the dataset based on the entire dataset. (train_ratio, validation_ratio, test_ratio)
+            random_state (int) : Random seed.
+            save_dir (str) : The path where the files will be saved.
+            save (bool) : Whether to save the files or not.
         Returns:
             val_ratio (float) : The recalculated ratio from the remaining dataset to obtain the required number of data points based on the entire dataset.
                                 (전체 데이터셋을 기준으로 필요한 데이터 개수를 얻기 위해 남은 데이터셋에서 다시 계산한 비율)
