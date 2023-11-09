@@ -102,7 +102,7 @@ def rename_the_files(files:list, remove_str:str='._'):
 
 
 ''' Make a Dataset ====== Start ====== '''
-def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None):
+def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None, single_processing:bool=True):
     '''
     Convert class-specific image data into a dataset (data, label).
     (클래스별 이미지 데이터를 dataset(data, label)으로 변환시키는 함수)
@@ -120,13 +120,13 @@ def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None):
             img_resize = True
             image_size = (image_W, image_H)
     # 1. data : image to numpy
-    numpyset = data2np(imageset) if not img_resize else data2np(imageset=imageset, image_size=image_size)
+    numpyset = data2np(imageset, single_processing=single_processing) if not img_resize else data2np(imageset=imageset, image_size=image_size, single_processing=single_processing)
     # 2. label : make a label(int)
-    print(f'\nMake a label...')
+    if single_processing: print(f'\nMake a label...')
     classes = list(numpyset.keys())
     labelset = {class_name:np.full((numpyset[class_name].shape[0],), idx) for idx, class_name in enumerate(classes)}
     # 3. after concatenate, return 
-    print(f'\nMake a dataset...')
+    if single_processing: print(f'\nMake a dataset...')
     dataset = {'data':np.array([]), 'label':np.array([])}
     for class_name in classes:
         if len(dataset['data']) == 0:
@@ -137,7 +137,7 @@ def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None):
     return dataset, classes
 
 
-def data2np(imageset, image_size=None):
+def data2np(imageset, image_size=None, single_processing:bool=True):
     '''
     Convert class-specific image data into a numpy dataset (data only).
         Args:
@@ -146,17 +146,17 @@ def data2np(imageset, image_size=None):
         Returns:
             data2np_dict : A dictionary where each class's image data is converted into a numpy array.
     '''
-    print(f'Convert the images to numpy...')
+    if single_processing: print(f'Convert the images to numpy...')
     data2np_dict = {}
     for class_name in imageset.keys():
-        print(f'Attempting to convert the \'{class_name}\' class to a numpy array.')
+        if single_processing: print(f'Attempting to convert the \'{class_name}\' class to a numpy array.')
         if class_name not in data2np_dict.keys(): data2np_dict[class_name] = []
         for image in tqdm(imageset[class_name]):
             img = Image.open(image)
             if image_size is not None: img = img.resize(image_size)
             data2np_dict[class_name].append(np.array(img))
         data2np_dict[class_name] = np.array(data2np_dict[class_name])
-        print(f'This Class is {class_name}. -> shape : {data2np_dict[class_name].shape}\n')
+        if single_processing: print(f'This Class is {class_name}. -> shape : {data2np_dict[class_name].shape}\n')
     return data2np_dict
 ''' Make a Dataset ====== End ====== '''
 
@@ -233,8 +233,8 @@ def DIST_pct(class_names:list, counts:dict={'train':[], 'valid':[], 'test':[]}, 
     print(f'Class Distribution')
     for idx, (k, v) in enumerate(counts.items()):
         print(f'{idx}. {k}set - Total {len(v)}')
-        for idx, c in enumerate(unique_result[k][0]):
-            print(f'\tClass {class_names[c]} : {unique_result[k][1][idx]} -> {np.round((unique_result[k][1][idx]/len(v))*100, 1)}% ({unique_result[k][1][idx]}/{len(v)})')
+        for i, c in enumerate(unique_result[k][0]):
+            print(f'\tClass {class_names[c]} : {unique_result[k][1][i]} -> {np.round((unique_result[k][1][i]/len(v))*100, 1)}% ({unique_result[k][1][i]}/{len(v)})')
         
         
 def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid':[], 'test':[]}, format_checked_counts:bool=False,
@@ -270,7 +270,7 @@ def DIST_countplot(class_names:list, title:str, counts:dict={'train':[], 'valid'
         bar = plt.bar(x+(bar_size*i), score, label=str(category), width=bar_size, color=next(colors))
         cnt+=1
         for rect, text in zip(bar, score):
-            height = rect.get_height()-25
+            height = rect.get_height()-15
             plt.text(rect.get_x() + rect.get_width()/2.0, height, text, ha='center', va='bottom', size=data_point_count_text_size)
     plt.xticks(x+((bar_size/2)*(cnt-1)), class_names, fontdict = {'fontsize' : 13})
     plt.legend(loc='lower left', bbox_to_anchor=(0,-0.2,1,0.2), ncol=ncol_in_legend, mode='expand')
