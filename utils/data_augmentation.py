@@ -9,10 +9,10 @@ import copy
 import traceback
 try:
     # data augmentation해서 npz로 저장할 거니까 필요없음
-    from utils import load_npz_dataset
+    from utils import load_npz_dataset, createDirectory
 except:
     try:
-        from utils.utils import load_npz_dataset
+        from utils.utils import load_npz_dataset, createDirectory
     except:
         print(f'Please check if "utils.py" exists, and if it does, add its path to sys.path.')
         print(traceback.format_exc())
