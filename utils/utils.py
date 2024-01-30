@@ -1,6 +1,6 @@
 import os
 import traceback
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from IPython.display import clear_output
 
 from pathlib import Path
@@ -125,15 +125,21 @@ def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None, sing
     if single_processing: print(f'\nMake a label...')
     classes = list(numpyset.keys())
     labelset = {class_name:np.full((numpyset[class_name].shape[0],), idx) for idx, class_name in enumerate(classes)}
-    # 3. after concatenate, return 
+    # 3. path : make a path list
+    if single_processing: print(f'\nMake a path list...')
+    pathset = {class_name:np.array([str(path).split('/')[-1] for path in imageset[class_name]]) for idx, class_name in enumerate(classes)}
+    
+    # 4. after concatenate, return 
     if single_processing: print(f'\nMake a dataset...')
-    dataset = {'data':np.array([]), 'label':np.array([])}
+    dataset = {'data':np.array([]), 'label':np.array([]), 'path':np.array([]), 'path_per_class':np.array([])}
     for class_name in classes:
         if len(dataset['data']) == 0:
-            dataset['data'], dataset['label'] = numpyset[class_name], labelset[class_name]
+            dataset['data'], dataset['label'], dataset['path'] = numpyset[class_name], labelset[class_name], pathset[class_name]
+            dataset['path_per_class'] = pathset
         else:
             dataset['data'] = np.append(dataset['data'], numpyset[class_name], axis=0)
             dataset['label'] = np.append(dataset['label'], labelset[class_name], axis=0)
+            dataset['path'] = np.append(dataset['path'], pathset[class_name], axis=0)
     return dataset, classes
 
 
@@ -308,12 +314,13 @@ def save_numpy_dataset(dataset:dict, class_names:list, save_dir:str=None, save_n
     print(f'save... {save_dir}/{save_name}\n')
     
 
-def make_a_splitset(dataset:dict, class_names:list, splitset_size:float=0.2, random_state:int=1, save_dir:str=None, save:bool=True):
+def make_a_splitset(dataset:dict, class_names:list, use_path=False, splitset_size:float=0.2, random_state:int=1, save_dir:str=None, save:bool=True):
     '''
     Divide the dataset according to its size.
         Args:
             dataset (dict) : Numpy-formatted dataset. (If you only have image data, use the 'make_a_numpy_dataset' function.)
             class_names (list) : A list of the names of classes present in the dataset.
+            use_path (bool) : Whether to create a splitset using a path, if true, will even save the path information.
             splitset_size (float) : The ratio to set aside as the test set. (0 < splitset_size < 1)
             random_state (int) : Random seed.
             save_dir (str) : The path where the files will be saved.
@@ -322,21 +329,33 @@ def make_a_splitset(dataset:dict, class_names:list, splitset_size:float=0.2, ran
             - save == True : None (Save the dataset after performing train-test split in the npz format.)
             - save == False : x_train, x_test, y_train, y_test (The dataset after performing train-test split.)
     '''
-    if 0 >= splitset_size or splitset_size >= 1 : raise ValueError("The 'splitset_size' should be set as a floating-point number between 0 and 1.")
+    if use_path and 'path' not in dataset.keys() and 'path_per_class' not in dataset.keys(): raise ValueError(f'A data path (\'path\') and a class-specific data path (\'path_per_class\') are required.\nCurrent data information exists:{dataset.keys()}')
+    if 0 >= splitset_size or splitset_size >= 1: raise ValueError("The 'splitset_size' should be set as a floating-point number between 0 and 1.")
     if save: createDirectory(save_dir)
     
     save_name = f'test{splitset_size}.npz'
 
     print(f'Creating training, validation, and test datasets. -> {save_name}')
-    x_train, x_test, y_train, y_test = train_test_split(dataset['data'], dataset['label'], test_size=splitset_size, shuffle=True, stratify=dataset['label'], random_state=random_state)
+    if use_path:
+        path_train, path_test, y_train, y_test = train_test_split(dataset['path'], dataset['label'], test_size=splitset_size, shuffle=True, stratify=dataset['label'], random_state=random_state)    
+        index_train, index_test = np.where(np.in1d(dataset['path'], path_train) == True)[0], np.where(np.in1d(dataset['path'], path_test) == True)[0]
+        x_train, x_test = dataset['data'][index_train], dataset['data'][index_test]
+    else:
+        x_train, x_test, y_train, y_test = train_test_split(dataset['data'], dataset['label'], test_size=splitset_size, shuffle=True, stratify=dataset['label'], random_state=random_state)
 
     print(f'data shape : {x_train.shape}, {x_test.shape}')
     print(f'label shape : {y_train.shape}, {y_test.shape}')
 
     if save:
-        np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
+        if use_path:
+            np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names),
+                                                x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test,
+                                                path_train=path_train, path_test=path_test, path_per_class=dataset['path_per_class'])
+        else: np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), x_train=x_train, x_test=x_test, y_train=y_train, y_test=y_test)
         print(f'save... {save_dir}/{save_name}\n')
-    else: return x_train, x_test, y_train, y_test
+    else: 
+        if use_path: return x_train, x_test, y_train, y_test, path_train, path_test, dataset['path_per_class']
+        else: return x_train, x_test, y_train, y_test
 
 
 def cal_val_ratio(size:tuple=(0.6, 0.2, 0.2), first_split:str='test'):
