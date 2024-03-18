@@ -1,5 +1,8 @@
 # Image-to-NPZ_dataset
-Split the data. And change to npz format.
+Split the data. And change to npz format.    
+**Data augmentation should be performed in the data loader.**    
+Currently, for the sake of example, data augmentation was directly applied to the data loaded from npz.    
+Therefore, please refer to the function and use it in the data loader.    
 
 
 
