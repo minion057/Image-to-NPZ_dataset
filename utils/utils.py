@@ -143,7 +143,7 @@ def make_a_numpy_dataset(imageset:dict, image_W:int=None, image_H:int=None, sing
     return dataset, classes
 
 
-def data2np(imageset, image_size=None, single_processing:bool=True):
+def data2np(imageset:dict, image_size=None, single_processing:bool=True):
     '''
     Convert class-specific image data into a numpy dataset (data only).
         Args:
@@ -310,7 +310,7 @@ def save_numpy_dataset(dataset:dict, class_names:list, save_dir:str=None, save_n
     '''
     createDirectory(save_dir)
     save_name = save_name if save_name[-len('.npz'):] == '.npz' else f'{save_name}.npz'
-    np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), data=dataset['data'], label=dataset['label'])
+    np.savez(f'{save_dir}/{save_name}', class_names=np.array(class_names), **dataset)
     print(f'save... {save_dir}/{save_name}\n')
     
 
@@ -329,7 +329,8 @@ def make_a_splitset(dataset:dict, class_names:list, use_path=False, splitset_siz
             - save == True : None (Save the dataset after performing train-test split in the npz format.)
             - save == False : x_train, x_test, y_train, y_test (The dataset after performing train-test split.)
     '''
-    if use_path and 'path' not in dataset.keys() and 'path_per_class' not in dataset.keys(): raise ValueError(f'A data path (\'path\') and a class-specific data path (\'path_per_class\') are required.\nCurrent data information exists:{dataset.keys()}')
+    if use_path and 'path' not in dataset.keys() and 'path_per_class' not in dataset.keys():
+        raise ValueError(f'A data path (\'path\') and a class-specific data path (\'path_per_class\') are required.\nCurrent data information exists:{dataset.keys()}')
     if 0 >= splitset_size or splitset_size >= 1: raise ValueError("The 'splitset_size' should be set as a floating-point number between 0 and 1.")
     if save: createDirectory(save_dir)
     
@@ -384,6 +385,7 @@ def cal_val_ratio(size:tuple=(0.6, 0.2, 0.2), first_split:str='test'):
   
 # split_trainset  
 def make_a_validationset_static_test(x_train:np.ndarray, x_test:np.ndarray, y_train:np.ndarray, y_test:np.ndarray, class_names:list,
+                                     path_train:np.ndarray=None, path_test:np.ndarray=None, path_per_class:dict=None,
                                      train_val_test_size:tuple=(0.6, 0.2, 0.2), random_state:int=1, save_dir:str=None, save:bool=True):
     '''
     Create a validation set when you already have a training set and a test set.
@@ -392,26 +394,37 @@ def make_a_validationset_static_test(x_train:np.ndarray, x_test:np.ndarray, y_tr
            You want to use 20% of the entire dataset as the validation dataset.    
            To do this, you should recalculate the validation dataset size based on the training dataset size.)
         Args:
-            x_train, x_test, y_train, y_test (np.ndarray) : The dataset created with 'make_a_splitset'
+            x_train, x_test, y_train, y_test: The dataset created with 'make_a_splitset'
+            path_train, path_test, path_per_class : Optional. The dataset created with 'make_a_splitset'
             class_names (list) : A list of the names of classes present in the dataset.
             train_val_test_size (tuple) : The ratio at which you want to split the dataset based on the entire dataset. (train_ratio, validation_ratio, test_ratio)
             random_state (int) : Random seed.
             save_dir (str) : The path where the files will be saved.
             save (bool) : Whether to save the files or not.
-        Returns:
-            val_ratio (float) : The recalculated ratio from the remaining dataset to obtain the required number of data points based on the entire dataset.
-                                (전체 데이터셋을 기준으로 필요한 데이터 개수를 얻기 위해 남은 데이터셋에서 다시 계산한 비율)
     '''
     val_ratio = cal_val_ratio(train_val_test_size, first_split='test')
-    x_train, x_valid, y_train, y_valid = train_test_split(x_train, y_train, test_size=val_ratio, shuffle=True, stratify=y_train, random_state=random_state)
+    if path_per_class is None and path_tain is None and path_test is None:
+        x_train_, x_valid_, y_train_, y_valid_ = train_test_split(x_train, y_train, test_size=val_ratio, shuffle=True, stratify=y_train, random_state=random_state)
+    else: # use_path = True
+        dataset = {'data':x_train, 'label':y_train, 'path':path_train, 'path_per_class':path_per_class}
+        x_train_, x_valid_, y_train_, y_valid_, path_train_, path_valid_, path_per_class_ = \
+                                            make_a_splitset(dataset, class_names, use_path=True, splitset_size=val_ratio, save=False)
 
-    print(f'data shape : {x_train.shape}, {x_valid.shape}, {x_test.shape}')
-    print(f'label shape : {y_train.shape}, {y_valid.shape}, {y_test.shape}')
+    print(f'data shape : {x_train_.shape}, {x_valid_.shape}, {x_test.shape}')
+    print(f'label shape : {y_train_.shape}, {y_valid_.shape}, {y_test.shape}')
     
-    train_ratio, validation_ratio, test_ratio = train_val_test_size
-    save_name = f'train{train_ratio}val{validation_ratio}test{test_ratio}.npz'
-    if save: np.savez(os.path.join(save_dir, save_name), class_names=np.array(class_names), x_train=x_train, x_valid=x_valid, x_test=x_test, y_train=y_train, y_valid=y_valid, y_test=y_test)
-    print(f'save... {save_dir}/{save_name}\n')
+    if save:
+        train_ratio, validation_ratio, test_ratio = train_val_test_size
+        save_name = f'train{train_ratio}val{validation_ratio}test{test_ratio}.npz'
+        if path_per_class is None and path_tain is None and path_test is None:
+            np.savez(os.path.join(save_dir, save_name), class_names=np.array(class_names), 
+                     x_train=x_train_, x_valid=x_valid_, x_test=x_test, y_train=y_train_, y_valid=y_valid_, y_test=y_test)
+        else: # use_path = True
+            np.savez(os.path.join(save_dir, save_name), class_names=np.array(class_names),
+                     x_train=x_train_, x_valid=x_valid_, x_test=x_test, y_train=y_train_, y_valid=y_valid_, y_test=y_test,
+                     path_train=path_train_, path_valid=path_valid_, path_test=path_test, path_per_class=path_per_class)
+        
+        print(f'save... {save_dir}/{save_name}\n')
 ''' Splitting and Save ====== End ====== '''
 
 
